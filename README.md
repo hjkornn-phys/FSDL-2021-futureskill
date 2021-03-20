@@ -20,3 +20,18 @@ Official Page: https://docs.google.com/document/d/e/2PACX-1vSSSHcahlrJRvVq4qRKDX
 - [Lab 8: Continuous Integration](lab7/readme.md): Add continuous linting and testing of our code.
 - [Lab 9: Deployment](lab8/readme.md): Run as a REST API locally, then in Docker, then put in production using AWS Lambda.
 - [Lab 10: Monitoring](lab10/readme.md): Set up monitoring that alerts us when the incoming data distribution changes.
+
+## Code Review
+패키지에 사용된 코드에 대해 공부한 내용은 정리합니다
+- [Lab 1: Intro](lab1/codereview.md): Formulate problem, structure codebase, train an MLP for MNIST.
+- [Lab 2: CNNs](lab2/codereview.md): Introduce EMNIST, generate synthetic handwritten lines, and train CNNs.
+- [Lab 3: RNNs](lab3/codereview.md): Using CNN + LSTM with CTC loss for line text recognition.
+- [Lab 4: Transformers](lab4/codereview.md): Using Transformers for line text recognition.
+- [Lab 5: Experiment Management](lab5/codereview.md): Real handwriting data, Weights & Biases, and hyperparameter sweeps.
+- [Lab 6: Line Detection](lab5/codereview.md): Train and evaluate line detection model (or paragraph recognition).
+- [Lab 7: Data Management](lab6/codereview.md): Label our own handwriting data and properly store it.
+- [Lab 8: Continuous Integration](lab7/codereview.md): Add continuous linting and testing of our code.
+- [Lab 9: Deployment](lab8/codereview.md): Run as a REST API locally, then in Docker, then put in production using AWS Lambda.
+- [Lab 10: Monitoring](lab10/codereview.md): Set up monitoring that alerts us when the incoming data distribution changes.
+
+
