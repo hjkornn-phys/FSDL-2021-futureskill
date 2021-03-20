@@ -168,18 +168,18 @@ def get_samples_by_char(samples, labels, mapping):
     samples_by_char = defaultdict(list)
     for sample, label in zip(samples, labels):
         samples_by_char[mapping[label]].append(sample)
-    return samples_by_char
+    return samples_by_char # {'A':[A_1, A_2], 'B':[B_1], 'C':[C_1]} (전체에 대해서)
 
 
-def select_letter_samples_for_string(string, samples_by_char):
+def select_letter_samples_for_string(string, samples_by_char): # 입력[1]은 get_samples_by_char()
     zero_image = torch.zeros((28, 28), dtype=torch.uint8)
     sample_image_by_char = {}
     for char in string:
         if char in sample_image_by_char:
             continue
         samples = samples_by_char[char]
-        sample = samples[np.random.choice(len(samples))] if samples else zero_image
-        sample_image_by_char[char] = sample.reshape(28, 28)
+        sample = samples[np.random.choice(len(samples))] if samples else zero_image # 수많은 A중 하나 고르기
+        sample_image_by_char[char] = sample.reshape(28, 28) # character 하나 당 이미지 하나 
     return [sample_image_by_char[char] for char in string]
 
 
@@ -191,12 +191,13 @@ def construct_image_from_string(
     N = len(sampled_images)
     H, W = sampled_images[0].shape
     next_overlap_width = W - int(overlap * W)
+    #dataset(n, H, W)에서 shape(-1)로 입력받음
     concatenated_image = torch.zeros((H, width), dtype=torch.uint8)
     x = 0
     for image in sampled_images:
         concatenated_image[:, x : (x + W)] += image
         x += next_overlap_width
-    return torch.minimum(torch.Tensor([255]), concatenated_image)
+    return torch.minimum(torch.Tensor([255]), concatenated_image) # ???
 
 
 def create_dataset_of_images(N, samples_by_char, sentence_generator, min_overlap, max_overlap, dims):

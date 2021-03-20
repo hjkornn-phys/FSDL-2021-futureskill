@@ -77,3 +77,11 @@ def convert_strings_to_labels(strings: Sequence[str], mapping: Dict[str, int], l
         for ii, token in enumerate(tokens):
             labels[i, ii] = mapping[token]
     return labels
+
+"""
+convert_strings_to_labels("DGOG", {"D":0, "O":5, "G":62 ,"<P>":2, "<S>":3, "<E>":4}, 7)
+tensor([[ 3,  0,  4,  2,  2,  2,  2],
+        [ 3, 62,  4,  2,  2,  2,  2],
+        [ 3,  5,  4,  2,  2,  2,  2],
+        [ 3, 62,  4,  2,  2,  2,  2]])
+"""

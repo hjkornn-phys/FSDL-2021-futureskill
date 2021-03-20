@@ -19,8 +19,8 @@ class BaseLitModel(pl.LightningModule):
         self.model = model
         self.args = vars(args) if args is not None else {}
 
-        optimizer = self.args.get("optimizer", OPTIMIZER)
-        self.optimizer_class = getattr(torch.optim, optimizer)
+        optimizer = self.args.get("optimizer", OPTIMIZER) # add "optimizer": OPTIMIZER to self.args dictionary
+        self.optimizer_class = getattr(torch.optim, optimizer) # getattr을 쓰는 이유: type(optimizer)가 스트링이기 때문에
 
         self.lr = self.args.get("lr", LR)
 
@@ -36,7 +36,7 @@ class BaseLitModel(pl.LightningModule):
         self.test_acc = pl.metrics.Accuracy()
 
     @staticmethod
-    def add_to_argparse(parser):
+    def add_to_argparse(parser): # 이 메소드는 /training/run_experiment.py에서 호출됨
         parser.add_argument("--optimizer", type=str, default=OPTIMIZER, help="optimizer class from torch.optim")
         parser.add_argument("--lr", type=float, default=LR)
         parser.add_argument("--one_cycle_max_lr", type=float, default=None)
@@ -45,7 +45,7 @@ class BaseLitModel(pl.LightningModule):
         return parser
 
     def configure_optimizers(self):
-        optimizer = self.optimizer_class(self.parameters(), lr=self.lr)
+        optimizer = self.optimizer_class(self.parameters(), lr=self.lr) # model의 파라미터
         if self.one_cycle_max_lr is None:
             return optimizer
         scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer=optimizer, max_lr=self.one_cycle_max_lr, total_steps=self.one_cycle_total_steps)
@@ -56,7 +56,7 @@ class BaseLitModel(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):  # pylint: disable=unused-argument
         x, y = batch
-        logits = self(x)
+        logits = self(x) # logit: 최종값
         loss = self.loss_fn(logits, y)
         self.log("train_loss", loss)
         self.train_acc(logits, y)

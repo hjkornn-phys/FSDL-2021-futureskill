@@ -1,6 +1,8 @@
 """MNIST DataModule"""
+import sys
+sys.path.append('/content/fsdl-text-recognizer-2021-labs/lab1') # 없으면 에러가 발생합니다. 데이터셋 파일의 최상단에 lab 차시 맞게 넣어주세요
+print('paths: ', sys.path)
 import argparse
-
 from torch.utils.data import random_split
 from torchvision.datasets import MNIST as TorchMNIST
 from torchvision import transforms

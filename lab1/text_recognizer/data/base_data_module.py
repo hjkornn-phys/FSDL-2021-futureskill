@@ -48,7 +48,7 @@ class BaseDataModule(pl.LightningDataModule):
 
     def __init__(self, args: argparse.Namespace = None) -> None:
         super().__init__()
-        self.args = vars(args) if args is not None else {}
+        self.args = vars(args) if args is not None else {} # To Dictionary
         self.batch_size = self.args.get("batch_size", BATCH_SIZE)
         self.num_workers = self.args.get("num_workers", NUM_WORKERS)
 
