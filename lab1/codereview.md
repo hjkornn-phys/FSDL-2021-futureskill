@@ -3,7 +3,8 @@
 
 [base_data_module.py](#base_data_module.py)
 
-[util.py]
+[util.py](#util.py)
+
 
 
 # base_data_module.py  
@@ -133,3 +134,6 @@ emnist.py에서도 setup을 통해 dataloader함수들을 호출하는데, 학�
 ```
 data_dirname은 데이터가 존재하는 디렉토리를 지정합니다
 함수들 prepare_data, setup 은 상속받는 클래스에서 override해야 합니다.
+
+
+# util.py
