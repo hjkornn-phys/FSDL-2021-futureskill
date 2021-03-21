@@ -326,3 +326,8 @@ getattr(module, param:str)은 인자가 str 타입일 때 module.param: callable
         self.test_acc(logits, y)
         self.log("test_acc", self.test_acc, on_step=False, on_epoch=True)
 ```
+forward 함수는 model 인자로 받은 nn.module 클래스의 forward와 동일하다는 것을 알 수 있습니다. 중심 기능은 그대로 둔 채로 훈련과정에 대한 함수를 포함시켜서 그렇습니다.
+또한 LightningModule은 기록을 남기는 log를 지원하는데, 각 update 스텝마다 보여줄 것인지, epoch마다 보여줄 것인지 선택할 수 있습니다.
+* logit은 최종 결과물이라는 의미로 쓰였습니다.
+
+
