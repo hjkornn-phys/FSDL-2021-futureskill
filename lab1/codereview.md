@@ -84,7 +84,7 @@ subclass라고 할 수 있습니다.
 LightningDataModule을 사용할 때의 장점은 일관된 데이터 준비, 로딩입니다. 모든 데이터셋에 같은 command line parameter를 사용하여 batch size와 num worker들을 정할 수
 있고 data split 역시 pytorch_lightning.trainer에 LightningDataModule 객체만 넣어주면 내부에서 setup함수를 통해 정의된 train_dataloader등을 알아서 사용하므로, 코드가 매우 간편해집니다.
 
-emnist.py에도 dataloader함수들이 존재하는데, 학습을 담당하는 run_experiment.py에는 명시적으로 setup이나 train_dataloader를 호출하는 코드는 보이지 않습니다.
+emnist.py에서도 setup을 통해 dataloader함수들을 호출하는데, 학습을 담당하는 run_experiment.py에는 명시적으로 setup이나 train_dataloader를 호출하는 코드는 보이지 않습니다. 이는 trainer 내부에서 그 작업이 실행되기 떄문입니다
 
 * vars는 argument를 dictionary로 만들어줍니다.
 
