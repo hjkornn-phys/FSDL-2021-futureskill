@@ -240,7 +240,7 @@ tensor([[ 3,  0,  4,  2,  2,  2,  2],
 # base.py
 ![image](https://user-images.githubusercontent.com/59644774/111895845-af6f6380-8a58-11eb-869e-b56e3278ea39.png)
  
-LightningModule은 torch.nn.Module을 training, validation, test과정과 그에 쓰이는 optimizer를 하나로 포장해둔 클래스입니다. 
+LightningModule은 torch.nn.Module을 training, validation, test과정과 그에 쓰이는 optimizer를 합쳐 하나로 포장해둔 클래스입니다. 
 
 ```python
 import argparse
