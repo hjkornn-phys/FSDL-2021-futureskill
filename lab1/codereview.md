@@ -5,6 +5,11 @@
 
 [util.py](#util.py)
 
+# text_recognizer/lit_models
+라이트닝 모듈의 기저 클래스를 정의합니다.
+
+[base.py](#base.py)
+
 
 
 # base_data_module.py  
@@ -229,4 +234,7 @@ tensor([[ 3,  0,  4,  2,  2,  2,  2],
         [ 3, 62,  4,  2,  2,  2,  2]])
 """
 ```
-의미있는 부분의 앞뒤에 <S>,<E> 토큰을 넣고, 나머지 빈칸에는 <P>(Padding)토큰을 넣어 labeling한 label:list 를 반환합니다. emnist로 문장을 만들 때 필요합니다
+의미있는 부분의 앞뒤에 <S>,<E> 토큰을 넣고, 나머지 빈칸에는 <P>(Padding)토큰을 넣어 labeling한 label:list 를 반환합니다. emnist로 문장을 만들 때 필요합니다.
+    
+    
+# base.py
