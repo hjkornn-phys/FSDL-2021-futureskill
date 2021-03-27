@@ -14,7 +14,7 @@ from text_recognizer import util
 def load_and_print_info(data_module_class: type) -> None:
     """Load EMNISTLines and print info."""
     parser = argparse.ArgumentParser()
-    data_module_class.add_to_argparse(parser)
+    data_module_class.add_to_argparse(parser) # 
     args = parser.parse_args()
     dataset = data_module_class(args)
     dataset.prepare_data()

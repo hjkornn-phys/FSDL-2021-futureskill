@@ -32,7 +32,7 @@ def _setup_parser():
     parser = argparse.ArgumentParser(add_help=False, parents=[trainer_parser])
 
     # Basic arguments
-    parser.add_argument("--data_class", type=str, default="MNIST")
+    parser.add_argument("--data_class", type=str, default="MNIST") 
     parser.add_argument("--model_class", type=str, default="MLP")
     parser.add_argument("--load_checkpoint", type=str, default=None)
 

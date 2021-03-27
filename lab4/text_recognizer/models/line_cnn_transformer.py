@@ -5,7 +5,7 @@ import argparse
 from typing import Any, Dict
 import math
 import torch
-import torch.nn as nn
+import torch.nn
 
 from .line_cnn import LineCNN
 
@@ -25,27 +25,27 @@ class PositionalEncoding(torch.nn.Module):
         self.dropout = torch.nn.Dropout(p=dropout)
 
         pe = torch.zeros(max_len, d_model)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
-        pe[:, 0::2] = torch.sin(position * div_term)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1) # 상자 씌우기, shape=(max_len,) -> (max_len,1)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model)) # exp(- 2k * log10000/ d) = (10^4)^(-2k/d)
+        pe[:, 0::2] = torch.sin(position * div_term) # phase = position * div_term , phase.shape = (max_len, d_model/2)
         pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0).transpose(0, 1)
+        pe = pe.unsqueeze(0).transpose(0, 1) # pe.shape = (1, max_len, d_model) -> (max_len, 1, d_model)
         self.register_buffer("pe", pe)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = x + self.pe[: x.size(0), :]
+        x = x + self.pe[: x.size(0), :] # if pe.shape = (10, 1, 8) and x.size(0) =3, self.pe[: x.size(0), :].shape = (3, 1, 8)
         return self.dropout(x)
 
 
 def generate_square_subsequent_mask(size: int) -> torch.Tensor:
     """Generate a triangular (size, size) mask."""
-    mask = (torch.triu(torch.ones(size, size)) == 1).transpose(0, 1)
+    mask = (torch.triu(torch.ones(size, size)) == 1).transpose(0, 1) # LU True matrix -> transpose. therefore lower triangle
     mask = mask.float().masked_fill(mask == 0, float("-inf")).masked_fill(mask == 1, float(0.0))
     return mask
 
 
 
-class LineCNNTransformer(nn.Module):
+class LineCNNTransformer(torch.nn.Module):
     """Process the line through a CNN and process the resulting sequence with a Transformer decoder"""
 
     def __init__(
@@ -76,15 +76,15 @@ class LineCNNTransformer(nn.Module):
         self.line_cnn = LineCNN(data_config=data_config_for_line_cnn, args=args)
         # LineCNN outputs (B, E, S) log probs, with E == dim
 
-        self.embedding = nn.Embedding(self.num_classes, self.dim)
-        self.fc = nn.Linear(self.dim, self.num_classes)
+        self.embedding = torch.nn.Embedding(self.num_classes, self.dim)
+        self.fc = torch.nn.Linear(self.dim, self.num_classes)
 
         self.pos_encoder = PositionalEncoding(d_model=self.dim)
 
         self.y_mask = generate_square_subsequent_mask(self.max_output_length)
 
-        self.transformer_decoder = nn.TransformerDecoder(
-            nn.TransformerDecoderLayer(
+        self.transformer_decoder = torch.nn.TransformerDecoder(
+            torch.nn.TransformerDecoderLayer(
                 d_model=self.dim,
                 nhead=tf_nhead,
                 dim_feedforward=tf_fc_dim,

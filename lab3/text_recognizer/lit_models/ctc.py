@@ -70,7 +70,7 @@ class CTCLitModel(BaseLitModel):
 
         logprobs_for_loss = logprobs.permute(2, 0, 1)  # -> (S, B, C)
 
-        input_lengths = torch.ones(B).type_as(logprobs_for_loss).int() * S
+        input_lengths = torch.ones(B).type_as(logprobs_for_loss).int() * S  #type_as does not do anything
         target_lengths = first_element(y, self.padding_index).type_as(y)
         loss = self.loss_fn(logprobs_for_loss, y, input_lengths, target_lengths)
         self.log("train_loss", loss)
@@ -104,7 +104,7 @@ class CTCLitModel(BaseLitModel):
         self.test_cer(decoded, y)
         self.log("test_cer", self.test_cer, on_step=False, on_epoch=True, prog_bar=True)
 
-    def greedy_decode(self, logprobs: torch.Tensor, max_length: int) -> torch.Tensor:
+def greedy_decode(self, logprobs: torch.Tensor, max_length: int) -> torch.Tensor: #?
         """
         Greedily decode sequences, collapsing repeated tokens, and removing the CTC blank token.
 

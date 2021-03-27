@@ -55,7 +55,7 @@ class EMNISTLines(BaseDataModule):
         self.transform = transforms.Compose([transforms.ToTensor()])
 
     @staticmethod
-    def add_to_argparse(parser):
+    def add_to_argparse(parser): # --max_length=3
         BaseDataModule.add_to_argparse(parser)
         parser.add_argument("--max_length", type=int, default=MAX_LENGTH, help="Max line length in characters.")
         parser.add_argument(

@@ -17,11 +17,11 @@ class CharacterErrorRate(pl.metrics.Metric):
     def update(self, preds: torch.Tensor, targets: torch.Tensor) -> None:
         N = preds.shape[0]
         for ind in range(N):
-            pred = [_ for _ in preds[ind].tolist() if _ not in self.ignore_tokens]
+            pred = [_ for _ in preds[ind].tolist() if _ not in self.ignore_tokens] # x = torch([0,2,1]) -> [2]
             target = [_ for _ in targets[ind].tolist() if _ not in self.ignore_tokens]
-            distance = editdistance.distance(pred, target)
+            distance = editdistance.distance(pred, target) # 한 문자열을 다른 문자열로 바꾸는데 필요한 add edit delete의 수 
             error = distance / max(len(pred), len(target))
-            self.error = self.error + error
+            self.error = self.error + error # 0으로 initialize되어있나?
         self.total = self.total + N
 
     def compute(self) -> torch.Tensor:
