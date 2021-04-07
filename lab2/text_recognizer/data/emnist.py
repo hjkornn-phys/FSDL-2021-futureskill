@@ -2,7 +2,6 @@
 EMNIST dataset. Downloads from NIST website and saves as .npz file if not already present.
 """
 import sys
-sys.path.append('/content/FSDL-2021-futureskill/lab2') # 없으면 에러가 발생합니다. 데이터셋 파일의 최상단에 lab 차시 맞게 넣어주세요
 sys.path.append('/content/FSDL-2021-Futureskill/lab2') # 없으면 에러가 발생합니다. 데이터셋 파일의 최상단에 lab 차시 맞게 넣어주세요
 print('paths: ', sys.path)
 from pathlib import Path
