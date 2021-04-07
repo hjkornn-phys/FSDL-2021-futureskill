@@ -154,7 +154,7 @@ class EMNISTLines(BaseDataModule):
             x, y = create_dataset_of_images(
                 num, samples_by_char, sentence_generator, self.min_overlap, self.max_overlap, self.dims
             )
-            y = convert_strings_to_labels(
+            y = convert_strings_to_labels( # "The Cat" -> 
                 y,
                 emnist.inverse_mapping,
                 length=self.output_dims[0],
@@ -165,8 +165,8 @@ class EMNISTLines(BaseDataModule):
 
 
 def get_samples_by_char(samples, labels, mapping):
-    samples_by_char = defaultdict(list)
-    for sample, label in zip(samples, labels):
+    samples_by_char = defaultdict(list) 
+    for sample, label in zip(samples, labels): 
         samples_by_char[mapping[label]].append(sample)
     return samples_by_char # {'A':[A_1, A_2], 'B':[B_1], 'C':[C_1]} (전체에 대해서)
 
