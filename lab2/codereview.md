@@ -85,4 +85,4 @@ if __name__ =="__main__":
 ```
 `brown_text` itertools.chain.from_iterable(): 여러 iterable에서 요소를 lazy evaluation(generator) 방식으로 하나씩 반환합니다. str.translate는 딕셔너리{a:b}를 받아 a를 b로 변환하는 
 메소드입니다. 이때 key와  value 모두 유니코드 값입니다
-
+`re.sub()` 첫번째 인자를 두 번째 인자로 교체하는 함수입니다
