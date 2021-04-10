@@ -154,9 +154,10 @@ class CTCLitModel(BaseLitModel):
 
     def forward(self, x):
         return self.model(x)
-```t
-CTCLoss를 loss function으로 갖고 BaseLitModel을 상속받는 CTCLitModel을 정의합니다. self.val_cer 과 self.test_cer는 평균적인 문자 오차율을 보여줍니다.
 ```
+
+CTCLoss를 loss function으로 갖고 BaseLitModel을 상속받는 CTCLitModel을 정의합니다. self.val_cer 과 self.test_cer는 평균적인 문자 오차율을 보여줍니다.
+```python
     def training_step(self, batch, batch_idx):  # pylint: disable=unused-argument
         x, y = batch
         logits = self(x)
@@ -198,7 +199,7 @@ CTCLoss를 loss function으로 갖고 BaseLitModel을 상속받는 CTCLitModel�
         self.log("test_acc", self.test_acc, on_step=False, on_epoch=True)
         self.test_cer(decoded, y)
         self.log("test_cer", self.test_cer, on_step=False, on_epoch=True, prog_bar=True)
-```python
+
 def greedy_decode(self, logprobs: torch.Tensor, max_length: int) -> torch.Tensor: 
         """
         Greedily decode sequences, collapsing repeated tokens, and removing the CTC blank token.
