@@ -534,7 +534,7 @@ def convert_strings_to_labels(
 if __name__ == "__main__":
     load_and_print_info(EMNISTLines)
 ```
-`get_samples_by_char` 빈 리스트 `[]`을 기본값으로 하는 DefaultDict 객체 samples_by_char를 생성합니다. 이 객체에 존재하지 않는 key를 통해 호출하면, 해당 key의 value는 `[]`가 됩니다. samples_by_char의 key에 char('A', 'B',...)를 넣고, 그 value는 sample들을 요소로 같는 list가 됩니다. 
+`get_samples_by_char` 빈 리스트 `[]`을 기본값으로 하는 DefaultDict 객체 samples_by_char를 생성합니다. 이 객체에 존재하지 않는 key를 통해 호출하면, 해당 key의 value는 `[]`가 됩니다. samples_by_char의 key에 char('A', 'B',...)를 넣고, 그 value는 sample들을 요소로 갖는 list가 됩니다. 
 
 `select_letter_samples_for_string` string에 존재하는 각 character마다 `samples_by_char[char]`로 char에 해당하는 sample의 list, samples를 얻습니다. samples에서 하나를 뽑아 28x28 형태로 reshape하고 `sample_image_by_char`에 넣습니다. 이때 sample_by_char은 dict type으로 {char: sample} 로 저장됩니다. 만약 string 내에 같은 글자가 있었다면, ex) 'peace' 에서 두번째 문자 e와 다섯번째 글자 e는 같은 image로 구현됩니다. 
 
