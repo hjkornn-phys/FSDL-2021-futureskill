@@ -536,15 +536,15 @@ if __name__ == "__main__":
 ```
 `get_samples_by_char` 빈 리스트 `[]`을 기본값으로 하는 DefaultDict 객체 samples_by_char를 생성합니다. 이 객체에 존재하지 않는 key를 통해 호출하면, 해당 key의 value는 `[]`가 됩니다. samples_by_char의 key에 char('A', 'B',...)를 넣고, 그 value는 sample들을 요소로 같는 list가 됩니다. 
 
-`select_letter_samples_for_string` string에 존재하는 각 character마다 `samples_by_char[char]`로 char에 해당하는 sample의 list, samples를 얻는다. samples에서 하나를 뽑아 28x28 형태로 reshape하고 `sample_image_by_char`에 넣는다. 이때 sample_by_char은 dict type으로 {char: sample} 로 저장된다. 만약 string 내에 같은 글자가 있었다면, ex) 'peace' 에서 두번째 문자 e와 다섯번째 글자 e는 같은 image로 구현된다. 
+`select_letter_samples_for_string` string에 존재하는 각 character마다 `samples_by_char[char]`로 char에 해당하는 sample의 list, samples를 얻습니다. samples에서 하나를 뽑아 28x28 형태로 reshape하고 `sample_image_by_char`에 넣습니다. 이때 sample_by_char은 dict type으로 {char: sample} 로 저장됩니다. 만약 string 내에 같은 글자가 있었다면, ex) 'peace' 에서 두번째 문자 e와 다섯번째 글자 e는 같은 image로 구현됩니다. 
 
-`select_letter_samples_for_string`은 string에 있는 char마다 해당하는 sample image의 list를 반환한다. 'cat' -> `[sample_image_for_c: torch.tensor, sample_image_for_a: torch.tensor, sample_image_for_t: torch.tensor]`
+`select_letter_samples_for_string`은 string에 있는 char마다 해당하는 sample image의 list를 반환합니다. 'cat' -> `[sample_image_for_c: torch.tensor, sample_image_for_a: torch.tensor, sample_image_for_t: torch.tensor]`
 
-`construct_image_from_string` width만큼의 가로를 갖는 concatenated_image를 0으로 초기화하고, overlap의 비율만큼 겹치는 image를 생성한다. 255를 넘는 값이 있다면 그 값을 255로 변화시킨다. 두 이미지의 겹치는 부분에서 이러한 일이 발생할 수 있다.
+`construct_image_from_string` width만큼의 가로를 갖는 concatenated_image를 0으로 초기화하고, overlap의 비율만큼 겹치는 image를 생성합니다. 255를 넘는 값이 있다면 그 값을 255로 변화시킵니다. 두 이미지의 겹치는 부분에서 이러한 일이 발생할 수 있습니다.
 
-`create_dataset_of_images` N개의 문장과 그에 해당하는 image를 만들어낸다.
+`create_dataset_of_images` N개의 문장과 그에 해당하는 image를 만들어냅니다.
 
-`convert_strings_to_labels` padding에 해당하는 label (`mapping["<P>"]`) 로 labels를 초기화하고 string의 모든 요소를 원소가 하나인 list로 만든다. (('what', 'up') ->`['w','h','a','t'], ['u','p']`) 그 후 start token과 end token을 추가한다 (`['<S>', 'w','h','a','t', '<E>'], ['<S>', 'u', 'p', '<E>']`)
-`labels[i, ii]`를 `mapping[token]`으로 대체한다. 따라서 `labels`는 `[['<S>', 'w','h','a','t', '<E>', '<P>', '<P>'], ['<S>', 'u', 'p', '<E>','<P>','<P>','<P>']
-]`의 각 요소를 mapping에 의해 해당하는 정수로 변환한 리스트가 된다
+`convert_strings_to_labels` padding에 해당하는 label (`mapping["<P>"]`) 로 labels를 초기화하고 string의 모든 요소를 원소가 하나인 list로 만듭니다. (('what', 'up') ->`['w','h','a','t'], ['u','p']`) 그 후 start token과 end token을 추가합니다 (`['<S>', 'w','h','a','t', '<E>'], ['<S>', 'u', 'p', '<E>']`)
+`labels[i, ii]`를 `mapping[token]`으로 대체합니다. 따라서 `labels`는 `[['<S>', 'w','h','a','t', '<E>', '<P>', '<P>'], ['<S>', 'u', 'p', '<E>','<P>','<P>','<P>']
+]`의 각 요소를 mapping에 의해 해당하는 정수로 변환한 리스트가 됩니다.
 
