@@ -116,8 +116,12 @@ def compute_input_lengths(padded_sequences: torch.Tensor) -> torch.Tensor:
     """
     lengths = torch.arange(padded_sequences.shape[1]).type_as(padded_sequences)
     return ((padded_sequences > 0) * lengths).argmax(1) + 1
+```
+`compute_input_lengths` torch.tensor의 1 dimension에 nonzero masking하고 (`[2, 3, 5, 4, 0 ,2] -> [True, True, True, True, False, True]`) , `length = [0, 1, 2, 3, 4, 5]` 와 곱해 
+`[0, 1, 2, 3, 0, 5]`에서 가장 큰 값을 갖는 index + 1 을 반환합니다. 따라서 padding이 0이라고 할 때, (padding이지 않은 가장 마지막 요소의 index + 1)을 반환합니다. 
 
 
+```python
 class CTCLitModel(BaseLitModel):
     """
     Generic PyTorch-Lightning class that must be initialized with a PyTorch module.
@@ -150,7 +154,9 @@ class CTCLitModel(BaseLitModel):
 
     def forward(self, x):
         return self.model(x)
-
+```t
+CTCLoss를 loss function으로 갖고 BaseLitModel을 상속받는 CTCLitModel을 정의합니다. self.val_cer 과 self.test_cer는 평균적인 문자 오차율을 보여줍니다.
+```
     def training_step(self, batch, batch_idx):  # pylint: disable=unused-argument
         x, y = batch
         logits = self(x)
@@ -192,8 +198,8 @@ class CTCLitModel(BaseLitModel):
         self.log("test_acc", self.test_acc, on_step=False, on_epoch=True)
         self.test_cer(decoded, y)
         self.log("test_cer", self.test_cer, on_step=False, on_epoch=True, prog_bar=True)
-
-def greedy_decode(self, logprobs: torch.Tensor, max_length: int) -> torch.Tensor: #?
+```python
+def greedy_decode(self, logprobs: torch.Tensor, max_length: int) -> torch.Tensor: 
         """
         Greedily decode sequences, collapsing repeated tokens, and removing the CTC blank token.
 
@@ -221,4 +227,8 @@ def greedy_decode(self, logprobs: torch.Tensor, max_length: int) -> torch.Tensor
             for ii, char in enumerate(seq):
                 decoded[i, ii] = char
         return decoded
-``` 
+```
+model을 통과한 후 log_softmax를 취하면 shape가 (B, C, S) 인 tensor을 얻습니다. C는 num_classes, S는 ctc모델이 예측한 sequence_length입니다.logprobs_for_loss.shape = (S, B, C)인데 b째 sample의 s번째 토큰을 label c라고 예측할 확률의 로그값이 `logprobs_for_loss[s][b][c]`입니다.
+
+`greedy_decode`는 logprobs (logprobs.shape == (B ,C, S))를 입력으로 받습니다. 첫째로 가장 예측 확률이 높은 label을 .argmax(1)로 얻어낸 뒤, (B, max_length)의 모양을 갖고 각 요소는 padding_index인 decoded: torch.tensor를 생성합니다. 
+
