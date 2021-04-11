@@ -231,5 +231,6 @@ def greedy_decode(self, logprobs: torch.Tensor, max_length: int) -> torch.Tensor
 ```
 model을 통과한 후 log_softmax를 취하면 shape가 (B, C, S) 인 tensor을 얻습니다. C는 num_classes, S는 ctc모델이 예측한 sequence_length입니다.logprobs_for_loss.shape = (S, B, C)인데 b째 sample의 s번째 토큰을 label c라고 예측할 확률의 로그값이 `logprobs_for_loss[s][b][c]`입니다.
 
-`greedy_decode`는 logprobs (logprobs.shape == (B ,C, S))를 입력으로 받습니다. 첫째로 가장 예측 확률이 높은 label을 .argmax(1)로 얻어낸 뒤, (B, max_length)의 모양을 갖고 각 요소는 padding_index인 decoded: torch.tensor를 생성합니다. 
+`greedy_decode`는 logprobs (logprobs.shape == (B ,C, S))를 입력으로 받습니다. 첫째로 가장 예측 확률이 높은 label을 .argmax(1)로 얻어냅니다. argmax의 모양은 (B,S)입니다. (B, max_length)의 모양을 갖고 모든 요소가 padding_index인 decoded: torch.tensor를 생성합니다. 
 
+각 샘플 당, 추정된 결과를 리스트로 만들고(`argmax[i].tolist()`) groupby로 연속적인 값은 하나로 합치고 blank token을 제거합니다. 마지막으로 decoded의 알맞은 자리에 결과(seq)를 대입합니다 
