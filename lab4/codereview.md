@@ -53,10 +53,13 @@ div_term으로 `[10000^(-2k/d) for k in torch.arange(0, d_model/2)]`와 같은 �
 phase(`phase = position * div_term , phase.shape = (max_len, d_model/2)`)를 만든다는 것을 생각해볼 때, 인접한 index 간 phase 차이는 3번째 축(d_model)에서 깊은 위치에 있을수록 작습니다. 
 
 pe.shape는 (max_len, 1, d_model)이 됩니다. x의 길이만큼 slicing하여 x와 더해주고 10%의 dropout을 하여 positional encoding을 구현합니다.
+![image](https://user-images.githubusercontent.com/59644774/115111188-09ad0700-9fba-11eb-82c5-1d2ea3682fee.png)
+
+가로축은 embedding dim, 세로축은 token position입니다.
  
 `generate_square_subsequent_mask` upper True triangle 행렬을 생성하고 transpose하여 lower True triangle로 변환합니다. 그 후 요소가 True이면 0, False이면 -inf 로 변환합니다. 미래에 대한 
 정보를 얻지 않도록 masking을 구현했습니다.
-![image](https://user-images.githubusercontent.com/59644774/115111188-09ad0700-9fba-11eb-82c5-1d2ea3682fee.png)
+
 
 ```python
 class LineCNNTransformer(torch.nn.Module):
@@ -114,7 +117,12 @@ class LineCNNTransformer(torch.nn.Module):
         self.embedding.weight.data.uniform_(-initrange, initrange)
         self.fc.bias.data.zero_()
         self.fc.weight.data.uniform_(-initrange, initrange)
+```
+LineCNN 클래스의 결과로부터 바로 문자 예측을 하지 않고, output_dim을 tf_dim(256)으로 하여, 그 결과를 transformer에 넣습니다. 따라서 LineCNN이 embedding역할을 하게 됩니다.
 
+
+
+```python
     def encode(self, x: torch.Tensor) -> torch.Tensor:
         """
         Parameters
@@ -156,7 +164,16 @@ class LineCNNTransformer(torch.nn.Module):
         output = self.transformer_decoder(tgt=y, memory=x, tgt_mask=y_mask, tgt_key_padding_mask=y_padding_mask)  # (Sy, B, E)
         output = self.fc(output)  # (Sy, B, C)
         return output
+```
+`encode` Input Image를 LineCNN에 통과시켜 embedding하고 차원에 맞게 scaling 후 positional encoding합니다. 
 
+`decode` target(=y)을 embedding합니다. 이때 `torch.Embedding(self.num_classes, self.dim)`을 이용하는데, token 하나( mapping = {'A': 0, ..}에서 0)당 self.dim 길이의 텐서로 변환되므로 (Sy,B)의 shape을 갖는 y의 embedding 후의 shape는 (Sy, B, E)가 됩니다. (이때 E = self.dim) 
+y에 positional encoding 이후 decoderlayer에 통과시키고 fc layer로 num_classes에 대해 결과를 얻어냅니다.
+
+![image](https://user-images.githubusercontent.com/59644774/115113946-c78ac200-9fc7-11eb-9652-5826f03c722f.png)
+
+
+```python
     def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         """
         Parameters
@@ -205,7 +222,11 @@ class LineCNNTransformer(torch.nn.Module):
             output_tokens[ind, Sy] = self.padding_token
 
         return output_tokens  # (B, Sy)
+```
 
+
+    
+```python
     @staticmethod
     def add_to_argparse(parser):
         LineCNN.add_to_argparse(parser)
