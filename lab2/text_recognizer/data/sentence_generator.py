@@ -38,7 +38,7 @@ class SentenceGenerator:
                 start_ind = self.word_start_inds[ind]
                 end_ind_candidates = []
                 for ind in range(ind + 1, len(self.word_start_inds)): # 끝나는 인덱스 지정, 시작 바로 다음 공백부터 마지막 공백 포함
-                    if self.word_start_inds[ind] - start_ind > max_length+1:  # +1이 들어가야 하지 않나???- 수정완료
+                    if self.word_start_inds[ind] - start_ind > max_length + 1:  # +1이 들어가야 하지 않나???- 수정완료
                         break
                     end_ind_candidates.append(self.word_start_inds[ind]) 
                 end_ind = np.random.choice(end_ind_candidates)

@@ -1,7 +1,8 @@
 import argparse
 import itertools
 import torch
-
+import sys
+sys.path.append('C:\\Users\\JUN.000\\Python mastery\\FSDL2021\\fsdl-text-recognizer-2021-labs\\lab3')
 from .base import BaseLitModel
 from .metrics import CharacterErrorRate
 from .util import first_element
@@ -37,7 +38,7 @@ class CTCLitModel(BaseLitModel):
     def __init__(self, model, args: argparse.Namespace = None):
         super().__init__(model, args)
 
-        inverse_mapping = {val: ind for ind, val in enumerate(self.model.data_config["mapping"])}
+        inverse_mapping = {val: ind for ind, val in enumerate(self.model.data_config["mapping"])} 
         start_index = inverse_mapping["<S>"]
         self.blank_index = inverse_mapping["<B>"]
         end_index = inverse_mapping["<E>"]
@@ -126,7 +127,9 @@ def greedy_decode(self, logprobs: torch.Tensor, max_length: int) -> torch.Tensor
         """
         B = logprobs.shape[0]
         argmax = logprobs.argmax(1)
+        print(argmax)
         decoded = torch.ones((B, max_length)).type_as(logprobs).int() * self.padding_index
+        print(decoded)
         for i in range(B):
             seq = [b for b, _g in itertools.groupby(argmax[i].tolist()) if b != self.blank_index][:max_length]
             for ii, char in enumerate(seq):
