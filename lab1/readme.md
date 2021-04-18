@@ -80,7 +80,7 @@ In the process of doing the above, `DataModule`s make use of a couple of other c
 
 If need be, you can read more about these [PyTorch data interfaces](https://pytorch.org/docs/stable/data.html).
 
-To avoid writing same old boilerplate for all of our data sources, we define a simple base class `text_recognizer.data.BaseDataModule` which in turn inherits from [`pl.LightningDataModule`](https://pytorch-lightning.readthedocs.io/en/latest/datamodules.html).
+To avoid writing same old boilerplate for all of our data sources, we define a simple base class `text_recognizer.data.BaseDataModule` which in turn inherits from [`pl.LightningDataModule`](https://pytorch-lightning.readthedocs.io/en/latest/extensions/datamodules.html).
 This inheritance will let us use the data very simply with PyTorch-Lightning `Trainer` and avoid common problems with distributed training.
 
 ### Models
@@ -126,4 +126,3 @@ And watch the model fail to achieve high accuracy due to too few parameters :)
 
 - Try `training/run_experiment.py` with different MLP hyper-parameters (e.g. `--fc1=128 --fc2=64`).
 - Try editing the MLP architecture in `text_recognizers/models/mlp.py`
-- Explain what you did and paste your training output into Gradescope Assignment 1.
