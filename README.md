@@ -22,7 +22,7 @@ Official Page: https://docs.google.com/document/d/e/2PACX-1vSSSHcahlrJRvVq4qRKDX
 - [Lab 10: Monitoring](lab10/readme.md): Set up monitoring that alerts us when the incoming data distribution changes.
 
 ## Code Review
-패키지에 사용된 코드에 대해 공부한 내용을 정리합니다
+패키지에 사용된 코드에 대해 공부한 내용을 정리합니다. lab5 이후의 내용은 lab9에 몰아서 정리했습니다.
 - [Lab 1: Intro](lab1/codereview.md): Formulate problem, structure codebase, train an MLP for MNIST.
 - [Lab 2: CNNs](lab2/codereview.md): Introduce EMNIST, generate synthetic handwritten lines, and train CNNs.
 - [Lab 3: RNNs](lab3/codereview.md): Using CNN + LSTM with CTC loss for line text recognition.
