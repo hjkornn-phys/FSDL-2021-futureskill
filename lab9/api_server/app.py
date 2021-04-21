@@ -1,6 +1,8 @@
 """Flask web server serving text_recognizer predictions."""
 import os
 import logging
+import sys
+sys.path.append(r'C:\Users\JUN.000\Python mastery\FSDL2021\fsdl-text-recognizer-2021-labs\lab9')
 
 from flask import Flask, request, jsonify
 from PIL import ImageStat
@@ -50,7 +52,7 @@ def _load_image():
 
 def main():
     """Run the app."""
-    app.run(host="0.0.0.0", port=8000, debug=False)  # nosec
+    app.run(host="127.0.0.1", port=8000, debug=False)  # nosec
 
 
 if __name__ == "__main__":
