@@ -425,8 +425,148 @@ best run에 대한 정보를 정리해 `config.json`, `model.pt`, `run_command.t
 `_get_run_command`가 잘 동작하지 않아 그 기능을 해제한 채로 실행시켰습니다
 
 
+# text_recognizer/data/iam.py
+```python
+"""Class for loading the IAM dataset, which encompasses both paragraphs and lines, with associated utilities."""
+from pathlib import Path
+from typing import Dict, List
+import argparse
+import os
+import xml.etree.ElementTree as ElementTree
+import zipfile
+
+from boltons.cacheutils import cachedproperty
+import toml
+
+from text_recognizer.data.base_data_module import BaseDataModule, _download_raw_dataset, load_and_print_info
 
 
+RAW_DATA_DIRNAME = BaseDataModule.data_dirname() / "raw" / "iam"
+METADATA_FILENAME = RAW_DATA_DIRNAME / "metadata.toml"
+DL_DATA_DIRNAME = BaseDataModule.data_dirname() / "downloaded" / "iam"
+EXTRACTED_DATASET_DIRNAME = DL_DATA_DIRNAME / "iamdb"
+
+DOWNSAMPLE_FACTOR = 2  # If images were downsampled, the regions must also be.
+LINE_REGION_PADDING = 16  # add this many pixels around the exact coordinates
+
+
+class IAM(BaseDataModule):
+    """
+    "The IAM Lines dataset, first published at the ICDAR 1999, contains forms of unconstrained handwritten text,
+    which were scanned at a resolution of 300dpi and saved as PNG images with 256 gray levels.
+    From http://www.fki.inf.unibe.ch/databases/iam-handwriting-database
+
+    The data split we will use is
+    IAM lines Large Writer Independent Text Line Recognition Task (lwitlrt): 9,862 text lines.
+        The validation set has been merged into the train set.
+        The train set has 7,101 lines from 326 writers.
+        The test set has 1,861 lines from 128 writers.
+        The text lines of all data sets are mutually exclusive, thus each writer has contributed to one set only.
+    """
+
+    def __init__(self, args: argparse.Namespace = None):
+        super().__init__(args)
+        self.metadata = toml.load(METADATA_FILENAME)
+
+    def prepare_data(self, *args, **kwargs) -> None:
+        if self.xml_filenames:
+            return
+        filename = _download_raw_dataset(self.metadata, DL_DATA_DIRNAME)  # type: ignore
+        _extract_raw_dataset(filename, DL_DATA_DIRNAME)
+
+    @property
+    def xml_filenames(self):
+        return list((EXTRACTED_DATASET_DIRNAME / "xml").glob("*.xml"))
+
+    @property
+    def form_filenames(self):
+        return list((EXTRACTED_DATASET_DIRNAME / "forms").glob("*.jpg"))
+
+    @property
+    def form_filenames_by_id(self):
+        return {filename.stem: filename for filename in self.form_filenames}
+
+    @property
+    def split_by_id(self):
+        return {
+            filename.stem: "test" if filename.stem in self.metadata["test_ids"] else "trainval"
+            for filename in self.form_filenames
+        }
+```
+IAM 데이터모듈을 다운로드 후 처리하면 forms 디렉토리에 이미지 파일이 저장되고, xml 디렉토리에는 xml 파일이 저장됩니다. xml은 위계적인 데이터타입이며, 트리로 나타내면 간편합니다.
+glob을 이용해 해당 디렉토리에 존재하는 모든 xml파일을 `xml_filenames`라는 변수로 저장합니다. `path.stem`어트리뷰트는 파일명에서 확장자를 제외한 부분을 가져옵니다. 따라서 `a.jpg -> a`가 됩니다 
+
+
+```
+    @cachedproperty
+    def line_strings_by_id(self):
+        """Return a dict from name of IAM form to a list of line texts in it."""
+        return {filename.stem: _get_line_strings_from_xml_file(filename) for filename in self.xml_filenames}
+
+    @cachedproperty
+    def line_regions_by_id(self):
+        """Return a dict from name of IAM form to a list of (x1, x2, y1, y2) coordinates of all lines in it."""
+        return {filename.stem: _get_line_regions_from_xml_file(filename) for filename in self.xml_filenames}
+
+    def __repr__(self):
+        """Print info about the dataset."""
+        return "IAM Dataset\n" f"Num total: {len(self.xml_filenames)}\nNum test: {len(self.metadata['test_ids'])}\n"
+```
+`@chachedproperty` 이 데코레이터는 wrapper로 쌓인 함수가 오로지 한번 실행되고, 그 다음부터는 저장된 값을 불러오도록 합니다.
+
+```
+def _extract_raw_dataset(filename: Path, dirname: Path) -> None:
+    print("Extracting IAM data")
+    curdir = os.getcwd()
+    os.chdir(dirname)
+    with zipfile.ZipFile(filename, "r") as zip_file:
+        zip_file.extractall()
+    os.chdir(curdir)
+
+
+def _get_line_strings_from_xml_file(filename: str) -> List[str]:
+    """Get the text content of each line. Note that we replace &quot; with "."""
+    xml_root_element = ElementTree.parse(filename).getroot()  # nosec
+    xml_line_elements = xml_root_element.findall("handwritten-part/line")
+    return [el.attrib["text"].replace("&quot;", '"') for el in xml_line_elements]
+
+
+def _get_line_regions_from_xml_file(filename: str) -> List[Dict[str, int]]:
+    """Get the line region dict for each line."""
+    xml_root_element = ElementTree.parse(filename).getroot()  # nosec
+    xml_line_elements = xml_root_element.findall("handwritten-part/line")
+    return [_get_line_region_from_xml_element(el) for el in xml_line_elements]
+```
+ `
+def _get_line_regions_from_xml_file`
+xml파일을 트리 형식으로 만들어 root node를 찾고, 그 노드의 직계 자식 중 `handwritten/line`을 전부 파싱합니다.
+
+```
+def _get_line_region_from_xml_element(xml_line) -> Dict[str, int]:
+    """
+    Parameters
+    ----------
+    xml_line
+        xml element that has x, y, width, and height attributes
+    """
+    word_elements = xml_line.findall("word/cmp")
+    x1s = [int(el.attrib["x"]) for el in word_elements]
+    y1s = [int(el.attrib["y"]) for el in word_elements]
+    x2s = [int(el.attrib["x"]) + int(el.attrib["width"]) for el in word_elements]
+    y2s = [int(el.attrib["y"]) + int(el.attrib["height"]) for el in word_elements]
+    return {
+        "x1": min(x1s) // DOWNSAMPLE_FACTOR - LINE_REGION_PADDING,
+        "y1": min(y1s) // DOWNSAMPLE_FACTOR - LINE_REGION_PADDING,
+        "x2": max(x2s) // DOWNSAMPLE_FACTOR + LINE_REGION_PADDING,
+        "y2": max(y2s) // DOWNSAMPLE_FACTOR + LINE_REGION_PADDING,
+    }
+
+
+if __name__ == "__main__":
+    load_and_print_info(IAM)
+```
+하나의 줄에 존재하는 단어들에 대한 데이터가 입력되는 상황에서 그 단어들이 차지하는 영역의 합집합, 즉 그 줄의 영역을 구하는 함수입니다. `x1s`와 `y1s1`는 단어의 시작점을 나타냅니다.(좌하단)
+`x2s`는 단어의 오른쪽 끝을, `y2s`는 단어의 위쪽 끝을 나타내고, 그 값들을 downsampling(model dependent)하고 padding을 씌워 반환합니다.
 
 
 
