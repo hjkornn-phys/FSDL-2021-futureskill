@@ -425,10 +425,575 @@ best run에 대한 정보를 정리해 `config.json`, `model.pt`, `run_command.t
 `_get_run_command`가 잘 동작하지 않아 그 기능을 해제한 채로 실행시켰습니다
 
 
+# text_recognizer/data/iam.py
+```python
+"""Class for loading the IAM dataset, which encompasses both paragraphs and lines, with associated utilities."""
+from pathlib import Path
+from typing import Dict, List
+import argparse
+import os
+import xml.etree.ElementTree as ElementTree
+import zipfile
+
+from boltons.cacheutils import cachedproperty
+import toml
+
+from text_recognizer.data.base_data_module import BaseDataModule, _download_raw_dataset, load_and_print_info
 
 
+RAW_DATA_DIRNAME = BaseDataModule.data_dirname() / "raw" / "iam"
+METADATA_FILENAME = RAW_DATA_DIRNAME / "metadata.toml"
+DL_DATA_DIRNAME = BaseDataModule.data_dirname() / "downloaded" / "iam"
+EXTRACTED_DATASET_DIRNAME = DL_DATA_DIRNAME / "iamdb"
+
+DOWNSAMPLE_FACTOR = 2  # If images were downsampled, the regions must also be.
+LINE_REGION_PADDING = 16  # add this many pixels around the exact coordinates
 
 
+class IAM(BaseDataModule):
+    """
+    "The IAM Lines dataset, first published at the ICDAR 1999, contains forms of unconstrained handwritten text,
+    which were scanned at a resolution of 300dpi and saved as PNG images with 256 gray levels.
+    From http://www.fki.inf.unibe.ch/databases/iam-handwriting-database
 
+    The data split we will use is
+    IAM lines Large Writer Independent Text Line Recognition Task (lwitlrt): 9,862 text lines.
+        The validation set has been merged into the train set.
+        The train set has 7,101 lines from 326 writers.
+        The test set has 1,861 lines from 128 writers.
+        The text lines of all data sets are mutually exclusive, thus each writer has contributed to one set only.
+    """
+
+    def __init__(self, args: argparse.Namespace = None):
+        super().__init__(args)
+        self.metadata = toml.load(METADATA_FILENAME)
+
+    def prepare_data(self, *args, **kwargs) -> None:
+        if self.xml_filenames:
+            return
+        filename = _download_raw_dataset(self.metadata, DL_DATA_DIRNAME)  # type: ignore
+        _extract_raw_dataset(filename, DL_DATA_DIRNAME)
+
+    @property
+    def xml_filenames(self):
+        return list((EXTRACTED_DATASET_DIRNAME / "xml").glob("*.xml"))
+
+    @property
+    def form_filenames(self):
+        return list((EXTRACTED_DATASET_DIRNAME / "forms").glob("*.jpg"))
+
+    @property
+    def form_filenames_by_id(self):
+        return {filename.stem: filename for filename in self.form_filenames}
+
+    @property
+    def split_by_id(self):
+        return {
+            filename.stem: "test" if filename.stem in self.metadata["test_ids"] else "trainval"
+            for filename in self.form_filenames
+        }
+```
+IAM 데이터모듈을 다운로드 후 처리하면 forms 디렉토리에 이미지 파일이 저장되고, xml 디렉토리에는 xml 파일이 저장됩니다. xml은 위계적인 데이터타입이며, 트리로 나타내면 간편합니다.
+glob을 이용해 해당 디렉토리에 존재하는 모든 xml파일을 `xml_filenames`라는 변수로 저장합니다. `path.stem`어트리뷰트는 파일명에서 확장자를 제외한 부분을 가져옵니다. 따라서 `a.jpg -> a`가 됩니다 
+
+
+```python
+    @cachedproperty
+    def line_strings_by_id(self):
+        """Return a dict from name of IAM form to a list of line texts in it."""
+        return {filename.stem: _get_line_strings_from_xml_file(filename) for filename in self.xml_filenames}
+
+    @cachedproperty
+    def line_regions_by_id(self):
+        """Return a dict from name of IAM form to a list of (x1, x2, y1, y2) coordinates of all lines in it."""
+        return {filename.stem: _get_line_regions_from_xml_file(filename) for filename in self.xml_filenames}
+
+    def __repr__(self):
+        """Print info about the dataset."""
+        return "IAM Dataset\n" f"Num total: {len(self.xml_filenames)}\nNum test: {len(self.metadata['test_ids'])}\n"
+```
+`@chachedproperty` 이 데코레이터는 wrapper로 쌓인 함수가 오로지 한번 실행되고, 그 다음부터는 저장된 값을 불러오도록 합니다.
+
+```python
+def _extract_raw_dataset(filename: Path, dirname: Path) -> None:
+    print("Extracting IAM data")
+    curdir = os.getcwd()
+    os.chdir(dirname)
+    with zipfile.ZipFile(filename, "r") as zip_file:
+        zip_file.extractall()
+    os.chdir(curdir)
+
+
+def _get_line_strings_from_xml_file(filename: str) -> List[str]:
+    """Get the text content of each line. Note that we replace &quot; with "."""
+    xml_root_element = ElementTree.parse(filename).getroot()  # nosec
+    xml_line_elements = xml_root_element.findall("handwritten-part/line")
+    return [el.attrib["text"].replace("&quot;", '"') for el in xml_line_elements]
+
+
+def _get_line_regions_from_xml_file(filename: str) -> List[Dict[str, int]]:
+    """Get the line region dict for each line."""
+    xml_root_element = ElementTree.parse(filename).getroot()  # nosec
+    xml_line_elements = xml_root_element.findall("handwritten-part/line")
+    return [_get_line_region_from_xml_element(el) for el in xml_line_elements]
+```
+ `
+def _get_line_regions_from_xml_file`
+xml파일을 트리 형식으로 만들어 root node를 찾고, 그 노드의 직계 자식 중 `handwritten/line`을 전부 파싱합니다.
+
+```python
+def _get_line_region_from_xml_element(xml_line) -> Dict[str, int]:
+    """
+    Parameters
+    ----------
+    xml_line
+        xml element that has x, y, width, and height attributes
+    """
+    word_elements = xml_line.findall("word/cmp")
+    x1s = [int(el.attrib["x"]) for el in word_elements]
+    y1s = [int(el.attrib["y"]) for el in word_elements]
+    x2s = [int(el.attrib["x"]) + int(el.attrib["width"]) for el in word_elements]
+    y2s = [int(el.attrib["y"]) + int(el.attrib["height"]) for el in word_elements]
+    return {
+        "x1": min(x1s) // DOWNSAMPLE_FACTOR - LINE_REGION_PADDING,
+        "y1": min(y1s) // DOWNSAMPLE_FACTOR - LINE_REGION_PADDING,
+        "x2": max(x2s) // DOWNSAMPLE_FACTOR + LINE_REGION_PADDING,
+        "y2": max(y2s) // DOWNSAMPLE_FACTOR + LINE_REGION_PADDING,
+    }
+
+
+if __name__ == "__main__":
+    load_and_print_info(IAM)
+```
+하나의 줄에 존재하는 단어들에 대한 데이터가 입력되는 상황에서 그 단어들이 차지하는 영역의 합집합, 즉 그 줄의 영역을 구하는 함수입니다. `x1s`와 `y1s1`는 단어의 시작점을 나타냅니다.(좌하단)
+`x2s`는 단어의 오른쪽 끝을, `y2s`는 단어의 위쪽 끝을 나타내고, 그 값들을 downsampling(model dependent)하고 padding을 씌워 반환합니다.
+
+
+# text_recognizer/data/iam_paragraphs.py
+```python
+"""IAM Paragraphs Dataset class."""
+import argparse
+from pathlib import Path
+from typing import Dict, Optional, Sequence, Tuple
+import json
+import numpy as np
+from PIL import Image, ImageOps
+import torchvision.transforms as transforms
+
+from text_recognizer.data.base_data_module import BaseDataModule, load_and_print_info
+from text_recognizer.data.emnist import EMNIST
+from text_recognizer.data.iam import IAM
+from text_recognizer.data.util import BaseDataset, convert_strings_to_labels, split_dataset
+
+
+PROCESSED_DATA_DIRNAME = BaseDataModule.data_dirname() / "processed" / "iam_paragraphs"
+
+NEW_LINE_TOKEN = "\n"
+TRAIN_FRAC = 0.8
+
+IMAGE_SCALE_FACTOR = 2
+IMAGE_HEIGHT = 1152 // IMAGE_SCALE_FACTOR
+IMAGE_WIDTH = 1280 // IMAGE_SCALE_FACTOR
+MAX_LABEL_LENGTH = 682
+
+
+class IAMParagraphs(BaseDataModule):
+    """
+    IAM Handwriting database paragraphs.
+    """
+    def __init__(self, args: argparse.Namespace = None):
+        super().__init__(args)
+        self.augment = self.args.get("augment_data", "true").lower() == "true"
+
+        mapping = EMNIST().mapping
+        assert mapping is not None
+        self.mapping = [*mapping, NEW_LINE_TOKEN]
+        self.inverse_mapping = {v: k for k, v in enumerate(self.mapping)}
+
+        self.dims = (1, IMAGE_HEIGHT, IMAGE_WIDTH)  # We assert that this is correct in setup()
+        self.output_dims = (MAX_LABEL_LENGTH, 1)  # We assert that this is correct in setup()
+
+    @staticmethod
+    def add_to_argparse(parser):
+        BaseDataModule.add_to_argparse(parser)
+        parser.add_argument("--augment_data", type=str, default="true")
+        return parser
+
+    def prepare_data(self, *args, **kwargs) -> None:
+        if PROCESSED_DATA_DIRNAME.exists():
+            return
+        print("IAMParagraphs.prepare_data: Cropping IAM paragraph regions and saving them along with labels...")
+
+        iam = IAM()
+        iam.prepare_data()
+
+        properties = {}
+        for split in ["trainval", "test"]:
+            crops, labels = get_paragraph_crops_and_labels(iam=iam, split=split)
+            save_crops_and_labels(crops=crops, labels=labels, split=split)
+
+            properties.update(
+                {
+                    id_: {
+                        "crop_shape": crops[id_].size[::-1],
+                        "label_length": len(label),
+                        "num_lines": _num_lines(label),
+                    }
+                    for id_, label in labels.items()
+                }
+            )
+
+        with open(PROCESSED_DATA_DIRNAME / "_properties.json", "w") as f:
+            json.dump(properties, f, indent=4)
+```
+`prepare_data()`IAM datamodule의 prepare_data()를 마치고 properties라는 다중 dictionary에 crop shape의 역순, 문자열의 길이, 줄의 개수를 세서 저장합니다.
+```python
+    def setup(self, stage: str = None) -> None:
+        def _load_dataset(split: str, augment: bool) -> BaseDataset:
+            crops, labels = load_processed_crops_and_labels(split)
+            X = [resize_image(crop, IMAGE_SCALE_FACTOR) for crop in crops]
+            Y = convert_strings_to_labels(strings=labels, mapping=self.inverse_mapping, length=self.output_dims[0])
+            transform = get_transform(image_shape=self.dims[1:], augment=augment)  # type: ignore
+            return BaseDataset(X, Y, transform=transform)
+
+        print(f"IAMParagraphs.setup({stage}): Loading IAM paragraph regions and lines...")
+        validate_input_and_output_dimensions(input_dims=self.dims, output_dims=self.output_dims)
+
+        if stage == "fit" or stage is None:
+            data_trainval = _load_dataset(split="trainval", augment=self.augment)
+            self.data_train, self.data_val = split_dataset(base_dataset=data_trainval, fraction=TRAIN_FRAC, seed=42)
+
+        if stage == "test" or stage is None:
+            self.data_test = _load_dataset(split="test", augment=False)
+```
+data와 target, transforms를 담은 `_load_dataset()`을 정의하고 self.data_train, self.data_val, self.data_test를 override합니다. transform의 경우, transform_list에 원하는 
+변환을 담고, transforms.Compose로 연달아 변환이 일어나게 할 수 있습니다. 이 역할은 `_get_transforms`에서 실행되고 있습니다.
+```python
+    def __repr__(self) -> str:
+        """Print info about the dataset."""
+        basic = (
+            "IAM Paragraphs Dataset\n"  # pylint: disable=no-member
+            f"Num classes: {len(self.mapping)}\n"
+            f"Input dims : {self.dims}\n"
+            f"Output dims: {self.output_dims}\n"
+        )
+        if self.data_train is None and self.data_val is None and self.data_test is None:
+            return basic
+
+        x, y = next(iter(self.train_dataloader()))
+        xt, yt = next(iter(self.test_dataloader()))
+        data = (
+            f"Train/val/test sizes: {len(self.data_train)}, {len(self.data_val)}, {len(self.data_test)}\n"
+            f"Train Batch x stats: {(x.shape, x.dtype, x.min(), x.mean(), x.std(), x.max())}\n"
+            f"Train Batch y stats: {(y.shape, y.dtype, y.min(), y.max())}\n"
+            f"Test Batch x stats: {(xt.shape, xt.dtype, xt.min(), xt.mean(), xt.std(), xt.max())}\n"
+            f"Test Batch y stats: {(yt.shape, yt.dtype, yt.min(), yt.max())}\n"
+        )
+        return basic + data
+
+
+def validate_input_and_output_dimensions(
+    input_dims: Optional[Tuple[int, ...]], output_dims: Optional[Tuple[int, ...]]
+) -> None:
+    """Validate input and output dimensions against the properties of the dataset."""
+    properties = get_dataset_properties()
+
+    max_image_shape = properties["crop_shape"]["max"] / IMAGE_SCALE_FACTOR
+    assert input_dims is not None and input_dims[1] >= max_image_shape[0] and input_dims[2] >= max_image_shape[1]
+
+    # Add 2 because of start and end tokens
+    assert output_dims is not None and output_dims[0] >= properties["label_length"]["max"] + 2
+
+
+def resize_image(image: Image.Image, scale_factor: int) -> Image.Image:
+    """Resize image by scale factor."""
+    if scale_factor == 1:
+        return image
+    return image.resize((image.width // scale_factor, image.height // scale_factor), resample=Image.BILINEAR)
+```
+`resize_image()`이미지를 다운스케일링합니다. `resample`은 scaling의 방식을 결정합니다.
+```python
+
+def get_paragraph_crops_and_labels(iam: IAM, split: str) -> Tuple[Dict[str, Image.Image], Dict[str, str]]:
+    """Load IAM paragraph crops and labels for a given split."""
+    crops = {}
+    labels = {}
+    for form_filename in iam.form_filenames:
+        id_ = form_filename.stem
+        if not iam.split_by_id[id_] == split:
+            continue
+        image = Image.open(form_filename)
+        image = ImageOps.grayscale(image)
+        image = ImageOps.invert(image)
+
+        line_regions = iam.line_regions_by_id[id_]
+        para_bbox = [
+            min([_["x1"] for _ in line_regions]),
+            min([_["y1"] for _ in line_regions]),
+            max([_["x2"] for _ in line_regions]),
+            max([_["y2"] for _ in line_regions]),
+        ]
+        lines = iam.line_strings_by_id[id_]
+
+        crops[id_] = image.crop(para_bbox)
+        labels[id_] = NEW_LINE_TOKEN.join(lines)
+    assert len(crops) == len(labels)
+    return crops, labels
+```
+split(fit or test)에 해당하는 이미지를 열어 grayscale로 처리하고 반전시킵니다. iam에서 얻은 line_region으로 손글씨 전체 영역(=paragraph)을 얻습니다. 잘라낸 이미지와 해당하는 손글씨를 개행 문자(\n)으로 연결한 문자열을 변수 crops와 labels로 저장하고, 반환합니다.
+```python
+
+def save_crops_and_labels(crops: Dict[str, Image.Image], labels: Dict[str, str], split: str):
+    """Save crops, labels and shapes of crops of a split."""
+    (PROCESSED_DATA_DIRNAME / split).mkdir(parents=True, exist_ok=True)
+
+    with open(_labels_filename(split), "w") as f:
+        json.dump(labels, f, indent=4)
+
+    for id_, crop in crops.items():
+        crop.save(_crop_filename(id_, split))
+```
+얻은 crops는 id_.png 의 이름으로, labels는 json으로 저장합니다.  
+```python
+def load_processed_crops_and_labels(split: str) -> Tuple[Sequence[Image.Image], Sequence[str]]:
+    """Load processed crops and labels for given split."""
+    with open(_labels_filename(split), "r") as f:
+        labels = json.load(f)
+
+    sorted_ids = sorted(labels.keys())
+    ordered_crops = [Image.open(_crop_filename(id_, split)).convert("L") for id_ in sorted_ids]
+    ordered_labels = [labels[id_] for id_ in sorted_ids]
+
+    assert len(ordered_crops) == len(ordered_labels)
+    return ordered_crops, ordered_labels
+```
+sorting한 crop와 label을 불러옵니다.(잘라진 이미지입니다) convert("L")은 grayscale로 변환을 의미합니다.
+```python
+def get_transform(image_shape: Tuple[int, int], augment: bool) -> transforms.Compose:
+    """Get transformations for images."""
+    if augment:
+        transforms_list = [
+            transforms.RandomCrop(  # random pad image to image_shape with 0
+                size=image_shape, padding=None, pad_if_needed=True, fill=0, padding_mode="constant"
+            ),
+            transforms.ColorJitter(brightness=(0.8, 1.6)),
+            transforms.RandomAffine(
+                degrees=1,
+                shear=(-10, 10),
+                resample=Image.BILINEAR,
+            ),
+        ]
+    else:
+        transforms_list = [transforms.CenterCrop(image_shape)]  # pad image to image_shape with 0
+    transforms_list.append(transforms.ToTensor())
+    return transforms.Compose(transforms_list)
+
+
+def get_dataset_properties() -> dict:
+    """Return properties describing the overall dataset."""
+    with open(PROCESSED_DATA_DIRNAME / "_properties.json", "r") as f:
+        properties = json.load(f)
+
+    def _get_property_values(key: str) -> list:
+        return [_[key] for _ in properties.values()]
+
+    crop_shapes = np.array(_get_property_values("crop_shape"))
+    aspect_ratios = crop_shapes[:, 1] / crop_shapes[:, 0]
+    return {
+        "label_length": {
+            "min": min(_get_property_values("label_length")),
+            "max": max(_get_property_values("label_length")),
+        },
+        "num_lines": {"min": min(_get_property_values("num_lines")), "max": max(_get_property_values("num_lines"))},
+        "crop_shape": {"min": crop_shapes.min(axis=0), "max": crop_shapes.max(axis=0)},
+        "aspect_ratio": {"min": aspect_ratios.min(), "max": aspect_ratios.max()},
+    }
+
+
+def _labels_filename(split: str) -> Path:
+    """Return filename of processed labels."""
+    return PROCESSED_DATA_DIRNAME / split / "_labels.json"
+
+
+def _crop_filename(id_: str, split: str) -> Path:
+    """Return filename of processed crop."""
+    return PROCESSED_DATA_DIRNAME / split / f"{id_}.png"
+
+
+def _num_lines(label: str) -> int:
+    """Return number of lines of text in label."""
+    return label.count("\n") + 1
+
+
+if __name__ == "__main__":
+    load_and_print_info(IAMParagraphs)
+```
+
+# text_recognizer/data/iam_synthetic_paragraphs
+```python3
+"""IAM Synthetic Paragraphs Dataset class."""
+from typing import Any, List, Sequence, Tuple
+import random
+from PIL import Image
+import numpy as np
+
+from text_recognizer.data.iam_paragraphs import (
+    IAMParagraphs,
+    get_dataset_properties,
+    resize_image,
+    get_transform,
+    NEW_LINE_TOKEN,
+    IMAGE_SCALE_FACTOR,
+)
+from text_recognizer.data.iam import IAM
+from text_recognizer.data.iam_lines import line_crops_and_labels, save_images_and_labels, load_line_crops_and_labels
+from text_recognizer.data.base_data_module import BaseDataModule, load_and_print_info
+from text_recognizer.data.util import BaseDataset, convert_strings_to_labels
+
+
+PROCESSED_DATA_DIRNAME = BaseDataModule.data_dirname() / "processed" / "iam_synthetic_paragraphs"
+
+
+class IAMSyntheticParagraphs(IAMParagraphs):
+    """
+    IAM Handwriting database synthetic paragraphs.
+    """
+
+    def prepare_data(self, *args, **kwargs) -> None:
+        """
+        Prepare IAM lines such that they can be used to generate synthetic paragraphs dataset in setup().
+        This method is IAMLines.prepare_data + resizing of line crops.
+        """
+        if PROCESSED_DATA_DIRNAME.exists():
+            return
+        print("IAMSyntheticParagraphs.prepare_data: preparing IAM lines for synthetic IAM paragraph creation...")
+        print("Cropping IAM line regions and loading labels...")
+        iam = IAM()
+        iam.prepare_data()
+        crops_trainval, labels_trainval = line_crops_and_labels(iam, "trainval")
+        crops_test, labels_test = line_crops_and_labels(iam, "test")
+
+        crops_trainval = [resize_image(crop, IMAGE_SCALE_FACTOR) for crop in crops_trainval]
+        crops_test = [resize_image(crop, IMAGE_SCALE_FACTOR) for crop in crops_test]
+
+        print(f"Saving images and labels at {PROCESSED_DATA_DIRNAME}...")
+        save_images_and_labels(crops_trainval, labels_trainval, "trainval", PROCESSED_DATA_DIRNAME)
+        save_images_and_labels(crops_test, labels_test, "test", PROCESSED_DATA_DIRNAME)
+```
+줄별로 이미지를 잘라 준비합니다
+```python
+    def setup(self, stage: str = None) -> None:
+        print(f"IAMSyntheticParagraphs.setup({stage}): Loading trainval IAM paragraph regions and lines...")
+
+        if stage == "fit" or stage is None:
+            line_crops, line_labels = load_line_crops_and_labels("trainval", PROCESSED_DATA_DIRNAME)
+            X, para_labels = generate_synthetic_paragraphs(line_crops=line_crops, line_labels=line_labels)
+            Y = convert_strings_to_labels(strings=para_labels, mapping=self.inverse_mapping, length=self.output_dims[0])
+            transform = get_transform(image_shape=self.dims[1:], augment=self.augment)  # type: ignore
+            self.data_train = BaseDataset(X, Y, transform=transform)
+
+    def __repr__(self) -> str:
+        """Print info about the dataset."""
+        basic = (
+            "IAM Synthetic Paragraphs Dataset\n"  # pylint: disable=no-member
+            f"Num classes: {len(self.mapping)}\n"
+            f"Input dims : {self.dims}\n"
+            f"Output dims: {self.output_dims}\n"
+        )
+        if self.data_train is None:
+            return basic
+
+        x, y = next(iter(self.train_dataloader()))
+        data = (
+            f"Train/val/test sizes: {len(self.data_train)}, 0, 0\n"
+            f"Train Batch x stats: {(x.shape, x.dtype, x.min(), x.mean(), x.std(), x.max())}\n"
+            f"Train Batch y stats: {(y.shape, y.dtype, y.min(), y.max())}\n"
+        )
+        return basic + data
+
+
+def generate_synthetic_paragraphs(
+    line_crops: List[Image.Image], line_labels: List[str], max_batch_size: int = 9
+) -> Tuple[List[Image.Image], List[str]]:
+    """Generate synthetic paragraphs and corresponding labels by randomly joining different subsets of crops."""
+    paragraph_properties = get_dataset_properties()
+
+    indices = list(range(len(line_labels)))
+    assert max_batch_size < paragraph_properties["num_lines"]["max"]
+
+    batched_indices_list = [[_] for _ in indices]  # batch_size = 1, len = 11395
+    batched_indices_list.extend(
+        generate_random_batches(values=indices, min_batch_size=2, max_batch_size=max_batch_size // 2)
+    )
+    batched_indices_list.extend(
+        generate_random_batches(values=indices, min_batch_size=2, max_batch_size=max_batch_size)
+    )
+    batched_indices_list.extend(
+        generate_random_batches(values=indices, min_batch_size=(max_batch_size // 2) + 1, max_batch_size=max_batch_size)
+    )
+    # assert sorted(list(itertools.chain(*batched_indices_list))) == indices
+
+    unique, counts = np.unique([len(_) for _ in batched_indices_list], return_counts=True)
+    for batch_len, count in zip(unique, counts):
+        print(f"{count} samples with {batch_len} lines")
+
+    para_crops, para_labels = [], []
+    for para_indices in batched_indices_list:
+        para_label = NEW_LINE_TOKEN.join([line_labels[i] for i in para_indices])
+        if len(para_label) > paragraph_properties["label_length"]["max"]:
+            print("Label longer than longest label in original IAM Paragraphs dataset - hence dropping")
+            continue
+
+        para_crop = join_line_crops_to_form_paragraph([line_crops[i] for i in para_indices])
+        max_para_shape = paragraph_properties["crop_shape"]["max"]
+        if para_crop.height > max_para_shape[0] or para_crop.width > max_para_shape[1]:
+            print("Crop larger than largest crop in original IAM Paragraphs dataset - hence dropping")
+            continue
+
+        para_crops.append(para_crop)
+        para_labels.append(para_label)
+
+    assert len(para_crops) == len(para_labels)
+    return para_crops, para_labels
+```
+`generate_synthetic_paragraphs`: IAM datamodule로부터 data augmentation을 실행합니다. 입력으로는 줄별로 잘려진 이미지의 배열과, 해당하는 문자열의 배열이 들어갑니다. max_batch_size까지의 줄 길이를 가진 문단을 임의로 만들어냅니다. 도우미 함수 generate_random_batches와 join_line_crops_to_form_paragraph를 이용하는데, generate_random_batches의 경우, 주어진 배열을 섞은 뒤, min_batch_size와 max_batch_size 사이의 줄 수를 갖는 샘플들로 나눕니다. 
+
+인공적인 data를 얻어낸 뒤, 실제의 data를 벗어난 경우 interpolation의 의미가 없으므로, 문단의 길이가 IAMParagraphs dataset의 최대 길이를 벗어난 경우나, 합쳐진 이미지의 크기가 
+IAMParagraphs dataset의 최대 height, width를 벗어난 경우, continue를 사용하여 data로 사용하지 않고 다음 sample로 넘어갑니다
+```python
+def join_line_crops_to_form_paragraph(line_crops: Sequence[Image.Image]) -> Image.Image:
+    """Horizontally stack line crops and return a single image forming the paragraph."""
+    crop_shapes = np.array([_.size[::-1] for _ in line_crops])
+    para_height = crop_shapes[:, 0].sum()
+    para_width = crop_shapes[:, 1].max()
+
+    para_image = Image.new(mode="L", size=(para_width, para_height), color=0)
+    current_height = 0
+    for line_crop in line_crops:
+        para_image.paste(line_crop, box=(0, current_height))
+        current_height += line_crop.height
+    return para_image
+
+
+def generate_random_batches(values: List[Any], min_batch_size: int, max_batch_size: int) -> List[List[Any]]:
+    """
+    Generate random batches of elements in values without replacement and return the list of all batches. Batch sizes
+    can be anything between min_batch_size and max_batch_size including the end points.
+    """
+    shuffled_values = values.copy()
+    random.shuffle(shuffled_values)
+
+    start_id = 0
+    grouped_values_list = []
+    while start_id < len(shuffled_values):
+        num_values = random.randint(min_batch_size, max_batch_size)
+        grouped_values_list.append(shuffled_values[start_id : start_id + num_values])
+        start_id += num_values
+    assert sum([len(_) for _ in grouped_values_list]) == len(values)
+    return grouped_values_list
+
+
+if __name__ == "__main__":
+    load_and_print_info(IAMSyntheticParagraphs)
 
 
