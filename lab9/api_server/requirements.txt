@@ -144,7 +144,7 @@ werkzeug==1.0.1
     # via
     #   flask
     #   tensorboard
-wheel==0.36.2
+wheel==0.38.1
     # via tensorboard
 yarl==1.6.3
     # via aiohttp
